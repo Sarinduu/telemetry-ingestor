@@ -5,6 +5,7 @@ import { AppService } from './app.service';
 import { appConfig } from './config/app.config';
 import { validateEnvironment } from './config/environment.validation';
 import { DatabaseModule } from './database/database.module';
+import { RedisModule } from './redis/redis.module';
 import { TelemetryModule } from './telemetry/telemetry.module';
 
 @Module({
@@ -17,6 +18,7 @@ import { TelemetryModule } from './telemetry/telemetry.module';
       validate: validateEnvironment,
     }),
     DatabaseModule,
+    RedisModule,
     TelemetryModule,
   ],
   controllers: [AppController],
