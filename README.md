@@ -109,10 +109,6 @@ High-humidity alert:
 # Development with file watching
 npm run start:dev
 
-# Production build
-npm run build
-npm run start:prod
-```
 
 The API is available at `http://localhost:3000/api/v1` by default.
 
@@ -272,12 +268,6 @@ npm run test:e2e
 npm run build
 npm run lint
 ```
-
-The Supertest E2E suite runs the real NestJS controllers, guards, validation,
-services, and HTTP routes with deterministic in-memory MongoDB and Redis test
-doubles. It does not require external infrastructure or expose credentials in
-CI. It covers authenticated ingestion, alert delivery, Redis cache use,
-MongoDB fallback, cache repair, and summary aggregation.
 
 ## AI assistance disclosure
 
