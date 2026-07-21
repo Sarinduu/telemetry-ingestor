@@ -1,5 +1,5 @@
 import { ConfigType } from '@nestjs/config';
-import { ConsoleLogger, ValidationPipe } from '@nestjs/common';
+import { ConsoleLogger, RequestMethod, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
@@ -31,7 +31,9 @@ async function bootstrap() {
       transformOptions: { enableImplicitConversion: false },
     }),
   );
-  app.setGlobalPrefix('api/v1');
+  app.setGlobalPrefix('api/v1', {
+    exclude: [{ path: 'health', method: RequestMethod.GET }],
+  });
   app.enableShutdownHooks();
 
   await app.listen(config.port);

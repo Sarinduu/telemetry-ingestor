@@ -15,6 +15,7 @@ alerts to a webhook, and exposes device and site analytics APIs.
 - Sends webhook alerts when temperature is greater than `50` or humidity is
   greater than `90`.
 - Aggregates site metrics over an ISO timestamp range.
+- Exposes dependency readiness at `GET /health`.
 - Uses structured JSON logs, bounded external-service timeouts, a 1 MB request
   limit, and graceful shutdown hooks.
 
@@ -199,6 +200,32 @@ Example response:
 
 For an empty range, `count` and `uniqueDevices` are `0`; aggregate metric
 values are `null`. A range where `from` is after `to` returns `400 Bad Request`.
+
+### Check application health
+
+```http
+GET /health
+```
+
+```bash
+curl http://localhost:3000/health
+```
+
+The endpoint actively checks MongoDB and Redis with a two-second timeout. It
+returns `200 OK` when both dependencies are available:
+
+```json
+{
+  "status": "ok",
+  "checks": {
+    "mongodb": "up",
+    "redis": "up"
+  }
+}
+```
+
+It returns `503 Service Unavailable` when either dependency is down. Connection
+details and credentials are never included in the response.
 
 ## Alert payload
 
