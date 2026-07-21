@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { IngestTokenGuard } from './guards/ingest-token.guard';
 import { TelemetryController } from './telemetry.controller';
 import { TelemetryService } from './telemetry.service';
 
@@ -12,7 +13,10 @@ describe('TelemetryController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [TelemetryController],
       providers: [{ provide: TelemetryService, useValue: telemetryService }],
-    }).compile();
+    })
+      .overrideGuard(IngestTokenGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<TelemetryController>(TelemetryController);
     jest.clearAllMocks();

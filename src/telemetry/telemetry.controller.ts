@@ -1,5 +1,13 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpCode,
+  HttpStatus,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { CreateTelemetryDto } from './dto/create-telemetry.dto';
+import { IngestTokenGuard } from './guards/ingest-token.guard';
 import { TelemetryPayloadPipe } from './pipes/telemetry-payload.pipe';
 import { TelemetryService } from './telemetry.service';
 
@@ -9,6 +17,7 @@ export class TelemetryController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @UseGuards(IngestTokenGuard)
   ingest(
     @Body(TelemetryPayloadPipe) readings: CreateTelemetryDto[],
   ): ReturnType<TelemetryService['ingest']> {
