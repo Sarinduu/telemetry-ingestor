@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
+import { AlertService } from '../alert/alert.service';
 import { RedisService } from '../redis/redis.service';
 import { Telemetry } from './schemas/telemetry.schema';
 import { TelemetryService } from './telemetry.service';
@@ -13,6 +14,9 @@ describe('TelemetryService', () => {
   const telemetryModel = {
     insertMany: jest.fn(),
     aggregate: jest.fn(),
+  };
+  const alertService = {
+    sendThresholdAlerts: jest.fn(),
   };
 
   const reading = {
@@ -34,6 +38,7 @@ describe('TelemetryService', () => {
           provide: RedisService,
           useValue: { client: { pipeline: () => pipeline } },
         },
+        { provide: AlertService, useValue: alertService },
       ],
     }).compile();
 
@@ -41,6 +46,7 @@ describe('TelemetryService', () => {
     jest.clearAllMocks();
     pipeline.set.mockReturnValue(pipeline);
     pipeline.exec.mockResolvedValue([]);
+    alertService.sendThresholdAlerts.mockResolvedValue(undefined);
   });
 
   it('should be defined', () => {
@@ -66,6 +72,7 @@ describe('TelemetryService', () => {
       JSON.stringify(latest[0]),
     );
     expect(pipeline.exec).toHaveBeenCalledTimes(1);
+    expect(alertService.sendThresholdAlerts).toHaveBeenCalledWith([reading]);
   });
 
   it('deduplicates device IDs before finding latest readings', async () => {

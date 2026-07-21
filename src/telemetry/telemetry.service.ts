@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { AlertService } from '../alert/alert.service';
 import { RedisService } from '../redis/redis.service';
 import { CreateTelemetryDto } from './dto/create-telemetry.dto';
 import { Telemetry, TelemetryDocument } from './schemas/telemetry.schema';
@@ -19,6 +20,7 @@ export class TelemetryService {
     @InjectModel(Telemetry.name)
     private readonly telemetryModel: Model<Telemetry>,
     private readonly redisService: RedisService,
+    private readonly alertService: AlertService,
   ) {}
 
   async ingest(readings: CreateTelemetryDto[]): Promise<TelemetryDocument[]> {
@@ -33,6 +35,7 @@ export class TelemetryService {
     await this.refreshLatestCache(
       Array.from(new Set(readings.map(({ deviceId }) => deviceId))),
     );
+    await this.alertService.sendThresholdAlerts(readings);
 
     return documents;
   }
