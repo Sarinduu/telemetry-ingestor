@@ -1,8 +1,8 @@
 {
   "name": "telemetry-ingestor",
   "version": "0.0.1",
-  "description": "",
-  "author": "",
+  "description": "A secure NestJS service for ingesting, caching, alerting, and aggregating IoT telemetry.",
+  "author": "Sarindu",
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
