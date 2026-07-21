@@ -2,7 +2,9 @@ import 'reflect-metadata';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { CreateTelemetryDto } from './create-telemetry.dto';
+import { DeviceParamsDto } from './device-params.dto';
 import { MetricsDto } from './metrics.dto';
+import { SiteParamsDto } from './site-params.dto';
 import { SummaryQueryDto } from './summary-query.dto';
 
 const validReading = {
@@ -71,5 +73,28 @@ describe('Telemetry DTO validation', () => {
     const dto = plainToInstance(SummaryQueryDto, query);
 
     await expect(validate(dto)).resolves.not.toHaveLength(0);
+  });
+
+  it('normalizes valid device and site parameters', async () => {
+    const deviceParams = plainToInstance(DeviceParamsDto, {
+      deviceId: ' device-1 ',
+    });
+    const siteParams = plainToInstance(SiteParamsDto, { siteId: ' site-1 ' });
+
+    await expect(validate(deviceParams)).resolves.toHaveLength(0);
+    await expect(validate(siteParams)).resolves.toHaveLength(0);
+    expect(deviceParams.deviceId).toBe('device-1');
+    expect(siteParams.siteId).toBe('site-1');
+  });
+
+  it.each([
+    [DeviceParamsDto, { deviceId: ' ' }],
+    [DeviceParamsDto, { deviceId: 'x'.repeat(129) }],
+    [SiteParamsDto, { siteId: ' ' }],
+    [SiteParamsDto, { siteId: 'x'.repeat(129) }],
+  ])('rejects invalid path parameters', async (Dto, value) => {
+    const params = plainToInstance(Dto, value);
+
+    await expect(validate(params)).resolves.not.toHaveLength(0);
   });
 });

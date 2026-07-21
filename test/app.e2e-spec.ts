@@ -260,6 +260,22 @@ describe('Telemetry API (e2e)', () => {
     expect(cache.has('latest:device-1')).toBe(true);
   });
 
+  it('rejects invalid device and site path parameters', async () => {
+    const oversizedId = 'x'.repeat(129);
+
+    await request(app.getHttpServer())
+      .get(`/api/v1/devices/${oversizedId}/latest`)
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .get(`/api/v1/sites/${oversizedId}/summary`)
+      .query({
+        from: '2026-07-21T09:00:00.000Z',
+        to: '2026-07-21T12:00:00.000Z',
+      })
+      .expect(400);
+  });
+
   it('aggregates a site summary over the requested range', async () => {
     await ingest([
       createReading({

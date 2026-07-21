@@ -24,7 +24,9 @@ describe('SitesController', () => {
     const summary = { count: 1 };
     telemetryService.getSummary.mockResolvedValue(summary);
 
-    await expect(controller.summary('site-1', query)).resolves.toBe(summary);
+    await expect(controller.summary({ siteId: 'site-1' }, query)).resolves.toBe(
+      summary,
+    );
     expect(telemetryService.getSummary).toHaveBeenCalledWith('site-1', query);
   });
 });

@@ -1,4 +1,5 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
+import { SiteParamsDto } from './dto/site-params.dto';
 import { SummaryQueryDto } from './dto/summary-query.dto';
 import { TelemetryService } from './telemetry.service';
 
@@ -8,7 +9,7 @@ export class SitesController {
 
   @Get(':siteId/summary')
   summary(
-    @Param('siteId') siteId: string,
+    @Param() { siteId }: SiteParamsDto,
     @Query() query: SummaryQueryDto,
   ): ReturnType<TelemetryService['getSummary']> {
     return this.telemetryService.getSummary(siteId, query);

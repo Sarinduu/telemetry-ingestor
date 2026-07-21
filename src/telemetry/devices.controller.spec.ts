@@ -23,7 +23,9 @@ describe('DevicesController', () => {
     };
     telemetryService.getLatest.mockResolvedValue(latest);
 
-    await expect(controller.latest('device-1')).resolves.toBe(latest);
+    await expect(controller.latest({ deviceId: 'device-1' })).resolves.toBe(
+      latest,
+    );
     expect(telemetryService.getLatest).toHaveBeenCalledWith('device-1');
   });
 });
