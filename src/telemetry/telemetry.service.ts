@@ -7,6 +7,7 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { AlertService } from '../alert/alert.service';
+import { IngestRateLimitService } from '../rate-limit/ingest-rate-limit.service';
 import { RedisService } from '../redis/redis.service';
 import { CreateTelemetryDto } from './dto/create-telemetry.dto';
 import { SummaryQueryDto } from './dto/summary-query.dto';
@@ -57,9 +58,12 @@ export class TelemetryService {
     private readonly telemetryModel: Model<Telemetry>,
     private readonly redisService: RedisService,
     private readonly alertService: AlertService,
+    private readonly ingestRateLimitService: IngestRateLimitService,
   ) {}
 
   async ingest(readings: CreateTelemetryDto[]): Promise<TelemetryDocument[]> {
+    await this.ingestRateLimitService.assertWithinLimit(readings);
+
     const documents = await this.telemetryModel.insertMany(
       readings.map((reading) => ({
         ...reading,

@@ -6,6 +6,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { AlertReason, AlertService } from '../src/alert/alert.service';
 import { appConfig } from '../src/config/app.config';
+import { IngestRateLimitService } from '../src/rate-limit/ingest-rate-limit.service';
 import { RedisService } from '../src/redis/redis.service';
 import { DevicesController } from '../src/telemetry/devices.controller';
 import { IngestTokenGuard } from '../src/telemetry/guards/ingest-token.guard';
@@ -154,6 +155,10 @@ describe('Telemetry API (e2e)', () => {
         AlertService,
         IngestTokenGuard,
         TelemetryPayloadPipe,
+        {
+          provide: IngestRateLimitService,
+          useValue: { assertWithinLimit: jest.fn() },
+        },
         { provide: getModelToken(Telemetry.name), useValue: telemetryModel },
         { provide: RedisService, useValue: { client: redisClient } },
         {

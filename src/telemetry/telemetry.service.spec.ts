@@ -2,6 +2,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
 import { AlertService } from '../alert/alert.service';
+import { IngestRateLimitService } from '../rate-limit/ingest-rate-limit.service';
 import { RedisService } from '../redis/redis.service';
 import { Telemetry } from './schemas/telemetry.schema';
 import { TelemetryService } from './telemetry.service';
@@ -25,6 +26,9 @@ describe('TelemetryService', () => {
   const alertService = {
     sendThresholdAlerts: jest.fn(),
   };
+  const ingestRateLimitService = {
+    assertWithinLimit: jest.fn(),
+  };
 
   const reading = {
     deviceId: 'device-1',
@@ -46,6 +50,10 @@ describe('TelemetryService', () => {
           useValue: { client: redisClient },
         },
         { provide: AlertService, useValue: alertService },
+        {
+          provide: IngestRateLimitService,
+          useValue: ingestRateLimitService,
+        },
       ],
     }).compile();
 
@@ -54,6 +62,7 @@ describe('TelemetryService', () => {
     pipeline.set.mockReturnValue(pipeline);
     pipeline.exec.mockResolvedValue([]);
     alertService.sendThresholdAlerts.mockResolvedValue(undefined);
+    ingestRateLimitService.assertWithinLimit.mockResolvedValue(undefined);
     redisClient.get.mockResolvedValue(null);
     redisClient.set.mockResolvedValue('OK');
   });
@@ -76,6 +85,9 @@ describe('TelemetryService', () => {
       [{ ...reading, ts: new Date(reading.ts) }],
       { ordered: true },
     );
+    expect(ingestRateLimitService.assertWithinLimit).toHaveBeenCalledWith([
+      reading,
+    ]);
     expect(pipeline.set).toHaveBeenCalledWith(
       'latest:device-1',
       JSON.stringify(latest[0]),

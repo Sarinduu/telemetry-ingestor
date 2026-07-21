@@ -15,6 +15,7 @@ alerts to a webhook, and exposes device and site analytics APIs.
 - Sends webhook alerts when temperature is greater than `50` or humidity is
   greater than `90`.
 - Deduplicates identical device alerts for 60 seconds using Redis.
+- Limits ingestion to 60 readings per device per 60 seconds.
 - Aggregates site metrics over an ISO timestamp range.
 - Exposes dependency readiness at `GET /health`.
 - Uses structured JSON logs, bounded external-service timeouts, a 1 MB request
@@ -144,7 +145,8 @@ curl -X POST http://localhost:3000/api/v1/telemetry \
 
 The endpoint also accepts an array containing the same object structure. It
 returns `201 Created`. Missing or invalid authentication returns
-`401 Unauthorized`.
+`401 Unauthorized`. A device that exceeds 60 readings in a 60-second window
+receives `429 Too Many Requests`; batch readings are counted per device.
 
 ### Get the latest device reading
 
