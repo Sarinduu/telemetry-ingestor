@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
+import { TelemetryPayloadPipe } from './pipes/telemetry-payload.pipe';
 import { Telemetry, TelemetrySchema } from './schemas/telemetry.schema';
 import { TelemetryController } from './telemetry.controller';
 import { TelemetryService } from './telemetry.service';
@@ -11,6 +12,6 @@ import { TelemetryService } from './telemetry.service';
     ]),
   ],
   controllers: [TelemetryController],
-  providers: [TelemetryService],
+  providers: [TelemetryService, TelemetryPayloadPipe],
 })
 export class TelemetryModule {}
