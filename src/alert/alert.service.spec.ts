@@ -1,11 +1,14 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { Logger } from '@nestjs/common';
 import { appConfig } from '../config/app.config';
+import { RedisService } from '../redis/redis.service';
 import { AlertReason, AlertService } from './alert.service';
 
 describe('AlertService', () => {
   let service: AlertService;
   let fetchMock: jest.SpiedFunction<typeof fetch>;
+  const redisSet = jest.fn();
+  const redisDel = jest.fn();
 
   const reading = {
     deviceId: 'device-1',
@@ -15,12 +18,17 @@ describe('AlertService', () => {
   };
 
   beforeEach(async () => {
+    jest.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AlertService,
         {
           provide: appConfig.KEY,
           useValue: { alertWebhookUrl: 'https://example.com/alerts' },
+        },
+        {
+          provide: RedisService,
+          useValue: { client: { set: redisSet, del: redisDel } },
         },
       ],
     }).compile();
@@ -29,6 +37,8 @@ describe('AlertService', () => {
     fetchMock = jest
       .spyOn(global, 'fetch')
       .mockResolvedValue({ ok: true, status: 204 } as Response);
+    redisSet.mockResolvedValue('OK');
+    redisDel.mockResolvedValue(1);
   });
 
   afterEach(() => {
@@ -65,6 +75,13 @@ describe('AlertService', () => {
         }),
       }),
     );
+    expect(redisSet).toHaveBeenCalledWith(
+      'alert:dedup:device-1:HIGH_TEMPERATURE',
+      '1',
+      'EX',
+      60,
+      'NX',
+    );
   });
 
   it('sends both alerts when both thresholds are exceeded', async () => {
@@ -79,6 +96,30 @@ describe('AlertService', () => {
     ]);
   });
 
+  it('suppresses the same device alert for 60 seconds', async () => {
+    redisSet.mockResolvedValueOnce('OK').mockResolvedValueOnce(null);
+    const highTemperatureReading = {
+      ...reading,
+      metrics: { temperature: 51, humidity: 60 },
+    };
+
+    await service.sendThresholdAlerts([highTemperatureReading]);
+    await service.sendThresholdAlerts([highTemperatureReading]);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails open when Redis cannot reserve an alert', async () => {
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+    redisSet.mockRejectedValue(new Error('Redis unavailable'));
+
+    await service.sendThresholdAlerts([
+      { ...reading, metrics: { temperature: 51, humidity: 60 } },
+    ]);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it('does not fail ingestion when the webhook rejects the alert', async () => {
     jest.spyOn(Logger.prototype, 'warn').mockImplementation();
     fetchMock.mockResolvedValue({ ok: false, status: 503 } as Response);
@@ -88,5 +129,8 @@ describe('AlertService', () => {
         { ...reading, metrics: { temperature: 51, humidity: 60 } },
       ]),
     ).resolves.toBeUndefined();
+    expect(redisDel).toHaveBeenCalledWith(
+      'alert:dedup:device-1:HIGH_TEMPERATURE',
+    );
   });
 });

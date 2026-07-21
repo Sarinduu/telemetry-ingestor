@@ -14,6 +14,7 @@ alerts to a webhook, and exposes device and site analytics APIs.
 - Falls back to MongoDB and repairs Redis on a latest-reading cache miss.
 - Sends webhook alerts when temperature is greater than `50` or humidity is
   greater than `90`.
+- Deduplicates identical device alerts for 60 seconds using Redis.
 - Aggregates site metrics over an ISO timestamp range.
 - Exposes dependency readiness at `GET /health`.
 - Uses structured JSON logs, bounded external-service timeouts, a 1 MB request
@@ -44,14 +45,14 @@ cp .env.example .env
 Configure every value in `.env` before starting the application. Never commit
 the `.env` file.
 
-| Variable | Required | Description |
-| --- | --- | --- |
-| `NODE_ENV` | No | `development`, `test`, or `production`; defaults to `development`. |
-| `PORT` | No | HTTP port from 1 to 65535; defaults to `3000`. |
-| `MONGO_URI` | Yes | MongoDB or Atlas connection URI. |
-| `REDIS_URL` | Yes | Redis connection URI, such as `redis://localhost:6379`. |
-| `ALERT_WEBHOOK_URL` | Yes | HTTPS endpoint that receives threshold alerts. |
-| `INGEST_TOKEN` | Yes | Bearer token accepted by the ingest endpoint. |
+| Variable            | Required | Description                                                        |
+| ------------------- | -------- | ------------------------------------------------------------------ |
+| `NODE_ENV`          | No       | `development`, `test`, or `production`; defaults to `development`. |
+| `PORT`              | No       | HTTP port from 1 to 65535; defaults to `3000`.                     |
+| `MONGO_URI`         | Yes      | MongoDB or Atlas connection URI.                                   |
+| `REDIS_URL`         | Yes      | Redis connection URI, such as `redis://localhost:6379`.            |
+| `ALERT_WEBHOOK_URL` | Yes      | HTTPS endpoint that receives threshold alerts.                     |
+| `INGEST_TOKEN`      | Yes      | Bearer token accepted by the ingest endpoint.                      |
 
 ### MongoDB
 
@@ -84,7 +85,8 @@ REDIS_URL=redis://localhost:6379
 
 Create a unique endpoint at [webhook.site](https://webhook.site/) and set it as
 `ALERT_WEBHOOK_URL`. A reading can produce two webhook requests if both
-thresholds are exceeded. Webhook failures are logged without rolling back a
+thresholds are exceeded. Repeated alerts for the same device and reason are
+suppressed for 60 seconds. Webhook failures are logged without rolling back a
 reading that has already been persisted.
 
 ### Webhook verification evidence

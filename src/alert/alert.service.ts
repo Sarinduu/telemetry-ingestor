@@ -1,8 +1,10 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import { appConfig } from '../config/app.config';
+import { RedisService } from '../redis/redis.service';
 
 const WEBHOOK_TIMEOUT_MS = 5_000;
+const ALERT_DEDUPLICATION_SECONDS = 60;
 
 export enum AlertReason {
   HighTemperature = 'HIGH_TEMPERATURE',
@@ -34,6 +36,7 @@ export class AlertService {
   constructor(
     @Inject(appConfig.KEY)
     private readonly config: ConfigType<typeof appConfig>,
+    private readonly redisService: RedisService,
   ) {}
 
   async sendThresholdAlerts(
@@ -41,7 +44,7 @@ export class AlertService {
   ): Promise<void> {
     const alerts = readings.flatMap((reading) => this.getAlerts(reading));
     const results = await Promise.allSettled(
-      alerts.map((alert) => this.postAlert(alert)),
+      alerts.map((alert) => this.sendIfNotDuplicate(alert)),
     );
 
     results.forEach((result, index) => {
@@ -83,6 +86,54 @@ export class AlertService {
     }
 
     return alerts;
+  }
+
+  private async sendIfNotDuplicate(alert: AlertPayload): Promise<void> {
+    const deduplicationKey = this.getDeduplicationKey(alert);
+    const reserved = await this.reserveAlert(deduplicationKey);
+
+    if (!reserved) {
+      return;
+    }
+
+    try {
+      await this.postAlert(alert);
+    } catch (error) {
+      await this.releaseAlert(deduplicationKey);
+      throw error;
+    }
+  }
+
+  private getDeduplicationKey(alert: AlertPayload): string {
+    return `alert:dedup:${alert.deviceId}:${alert.reason}`;
+  }
+
+  private async reserveAlert(key: string): Promise<boolean> {
+    try {
+      const result = await this.redisService.client.set(
+        key,
+        '1',
+        'EX',
+        ALERT_DEDUPLICATION_SECONDS,
+        'NX',
+      );
+      return result === 'OK';
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Could not check alert deduplication; sending alert: ${message}`,
+      );
+      return true;
+    }
+  }
+
+  private async releaseAlert(key: string): Promise<void> {
+    try {
+      await this.redisService.client.del(key);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Could not release alert deduplication key: ${message}`);
+    }
   }
 
   private async postAlert(alert: AlertPayload): Promise<void> {
