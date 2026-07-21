@@ -1,12 +1,14 @@
+import 'reflect-metadata';
 import { ConfigType } from '@nestjs/config';
 import { appConfig } from '../config/app.config';
+import { NodeEnvironment } from '../config/environment.validation';
 import { createMongooseOptions } from './database.module';
 
 function createConfig(
   overrides: Partial<ConfigType<typeof appConfig>> = {},
 ): ConfigType<typeof appConfig> {
   return {
-    nodeEnv: 'development',
+    nodeEnv: NodeEnvironment.Development,
     port: 3000,
     mongoUri: 'mongodb://localhost:27017/telemetry',
     redisUrl: 'redis://localhost:6379',
@@ -32,7 +34,7 @@ describe('createMongooseOptions', () => {
 
   it('disables automatic index creation in production', () => {
     const options = createMongooseOptions(
-      createConfig({ nodeEnv: 'production' }),
+      createConfig({ nodeEnv: NodeEnvironment.Production }),
     );
 
     expect(options.autoIndex).toBe(false);

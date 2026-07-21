@@ -1,10 +1,24 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
+import { randomUUID } from 'node:crypto';
 import { appConfig } from '../config/app.config';
 import { RedisService } from '../redis/redis.service';
 
 const WEBHOOK_TIMEOUT_MS = 5_000;
 const ALERT_DEDUPLICATION_SECONDS = 60;
+const RELEASE_ALERT_SCRIPT = `
+if redis.call('GET', KEYS[1]) == ARGV[1] then
+  return redis.call('DEL', KEYS[1])
+end
+
+return 0
+`;
+
+interface AlertReservation {
+  key: string;
+  token: string;
+  owned: boolean;
+}
 
 export enum AlertReason {
   HighTemperature = 'HIGH_TEMPERATURE',
@@ -90,16 +104,18 @@ export class AlertService {
 
   private async sendIfNotDuplicate(alert: AlertPayload): Promise<void> {
     const deduplicationKey = this.getDeduplicationKey(alert);
-    const reserved = await this.reserveAlert(deduplicationKey);
+    const reservation = await this.reserveAlert(deduplicationKey);
 
-    if (!reserved) {
+    if (!reservation) {
       return;
     }
 
     try {
       await this.postAlert(alert);
     } catch (error) {
-      await this.releaseAlert(deduplicationKey);
+      if (reservation.owned) {
+        await this.releaseAlert(reservation);
+      }
       throw error;
     }
   }
@@ -108,28 +124,35 @@ export class AlertService {
     return `alert:dedup:${alert.deviceId}:${alert.reason}`;
   }
 
-  private async reserveAlert(key: string): Promise<boolean> {
+  private async reserveAlert(key: string): Promise<AlertReservation | null> {
+    const token = randomUUID();
+
     try {
       const result = await this.redisService.client.set(
         key,
-        '1',
+        token,
         'EX',
         ALERT_DEDUPLICATION_SECONDS,
         'NX',
       );
-      return result === 'OK';
+      return result === 'OK' ? { key, token, owned: true } : null;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.warn(
         `Could not check alert deduplication; sending alert: ${message}`,
       );
-      return true;
+      return { key, token, owned: false };
     }
   }
 
-  private async releaseAlert(key: string): Promise<void> {
+  private async releaseAlert(reservation: AlertReservation): Promise<void> {
     try {
-      await this.redisService.client.del(key);
+      await this.redisService.client.eval(
+        RELEASE_ALERT_SCRIPT,
+        1,
+        reservation.key,
+        reservation.token,
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.warn(`Could not release alert deduplication key: ${message}`);

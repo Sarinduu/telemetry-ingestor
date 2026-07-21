@@ -1,10 +1,17 @@
 import { registerAs } from '@nestjs/config';
+import { validateEnvironment } from './environment.validation';
 
-export const appConfig = registerAs('app', () => ({
-  nodeEnv: process.env.NODE_ENV ?? 'development',
-  port: Number(process.env.PORT ?? 3000),
-  mongoUri: process.env.MONGO_URI as string,
-  redisUrl: process.env.REDIS_URL as string,
-  alertWebhookUrl: process.env.ALERT_WEBHOOK_URL as string,
-  ingestToken: process.env.INGEST_TOKEN as string,
-}));
+export function createAppConfig(configuration: Record<string, unknown>) {
+  const environment = validateEnvironment(configuration);
+
+  return {
+    nodeEnv: environment.NODE_ENV,
+    port: environment.PORT,
+    mongoUri: environment.MONGO_URI,
+    redisUrl: environment.REDIS_URL,
+    alertWebhookUrl: environment.ALERT_WEBHOOK_URL,
+    ingestToken: environment.INGEST_TOKEN,
+  };
+}
+
+export const appConfig = registerAs('app', () => createAppConfig(process.env));

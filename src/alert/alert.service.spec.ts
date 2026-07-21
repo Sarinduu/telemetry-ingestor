@@ -8,7 +8,7 @@ describe('AlertService', () => {
   let service: AlertService;
   let fetchMock: jest.SpiedFunction<typeof fetch>;
   const redisSet = jest.fn();
-  const redisDel = jest.fn();
+  const redisEval = jest.fn();
 
   const reading = {
     deviceId: 'device-1',
@@ -28,7 +28,7 @@ describe('AlertService', () => {
         },
         {
           provide: RedisService,
-          useValue: { client: { set: redisSet, del: redisDel } },
+          useValue: { client: { set: redisSet, eval: redisEval } },
         },
       ],
     }).compile();
@@ -38,7 +38,7 @@ describe('AlertService', () => {
       .spyOn(global, 'fetch')
       .mockResolvedValue({ ok: true, status: 204 } as Response);
     redisSet.mockResolvedValue('OK');
-    redisDel.mockResolvedValue(1);
+    redisEval.mockResolvedValue(1);
   });
 
   afterEach(() => {
@@ -77,7 +77,7 @@ describe('AlertService', () => {
     );
     expect(redisSet).toHaveBeenCalledWith(
       'alert:dedup:device-1:HIGH_TEMPERATURE',
-      '1',
+      expect.any(String),
       'EX',
       60,
       'NX',
@@ -129,8 +129,23 @@ describe('AlertService', () => {
         { ...reading, metrics: { temperature: 51, humidity: 60 } },
       ]),
     ).resolves.toBeUndefined();
-    expect(redisDel).toHaveBeenCalledWith(
+    expect(redisEval).toHaveBeenCalledWith(
+      expect.stringContaining("redis.call('GET', KEYS[1])"),
+      1,
       'alert:dedup:device-1:HIGH_TEMPERATURE',
+      expect.any(String),
     );
+  });
+
+  it('does not release another request reservation after Redis fail-open', async () => {
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+    redisSet.mockRejectedValue(new Error('Redis unavailable'));
+    fetchMock.mockResolvedValue({ ok: false, status: 503 } as Response);
+
+    await service.sendThresholdAlerts([
+      { ...reading, metrics: { temperature: 51, humidity: 60 } },
+    ]);
+
+    expect(redisEval).not.toHaveBeenCalled();
   });
 });
