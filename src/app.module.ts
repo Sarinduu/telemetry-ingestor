@@ -1,7 +1,5 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
 import { appConfig } from './config/app.config';
 import { validateEnvironment } from './config/environment.validation';
 import { DatabaseModule } from './database/database.module';
@@ -23,7 +21,5 @@ import { TelemetryModule } from './telemetry/telemetry.module';
     HealthModule,
     TelemetryModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
 })
 export class AppModule {}
